@@ -1,35 +1,41 @@
+
 import requests
 import streamlit as st
 
+# Function to call LangServe API
+def get_groq_response(input_text):
+    url = "http://127.0.0.1:8000/chain/invoke"
 
-import requests
+    payload = {
+        "input": {
+            "topic": input_text
+        }
+    }
 
-
-def get_groq_response(input_text: str) -> str:
-    groq_api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY")
-    if not groq_api_key:
-        raise RuntimeError(
-            "GROQ_API_KEY is not set. Add it to .env or Streamlit secrets under GROQ_API_KEY."
-        )
-
-    model = ChatGroq(model="llama-3.3-70b-versatile", api_key=groq_api_key)
-    system_template = "Translate the following into {language}:"
-    prompt_template = ChatPromptTemplate.from_messages([
-        ("system", system_template),
-        ("user", "{text}")
-    ])
-    parser = StrOutputParser()
-    chain = prompt_template | model | parser
-
-    return chain.invoke({"text": input_text, "language": "french"})
-
-
-st.title("LLM Application Using LCEL")
-input_text = st.text_input("Enter the text you want to convert to French")
-
-if input_text:
     try:
-        result = get_groq_response(input_text)
-        st.write(result)
-    except Exception as exc:
-        st.error(f"Error: {exc}")
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # LangServe usually returns output like this
+        return data.get("output", "No response received")
+
+    except requests.exceptions.RequestException as e:
+        return f"❌ API Error: {e}"
+
+
+# Streamlit UI
+st.set_page_config(page_title="AI Translator", layout="centered")
+
+st.title("🌍 AI French Translator")
+
+input_text = st.text_input("Enter text to translate into French:")
+
+if st.button("Translate"):
+    if input_text.strip() == "":
+        st.warning("Please enter some text.")
+    else:
+        with st.spinner("Translating... ⚡"):
+            result = get_groq_response(input_text)
+            st.success(result)
